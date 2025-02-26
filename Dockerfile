@@ -19,9 +19,9 @@ RUN pip install -r requirements.txt
 # Copy the current directory contents into the container at /app
 COPY --chown=user . $HOME/app
 
-FROM base AS debug
+FROM base AS debug_app_controller
 
-CMD ["python", "-m", "pdb", "aws_s3_files_manager.py"]
+CMD ["python", "-m", "pdb", "test_app_controller.py"]
 
 FROM base AS run
 

@@ -38,9 +38,6 @@ class Full_AI_Files_Manager_Interface(Base_Interface):
         self.config = configparser.ConfigParser()
         self.config.read('config.cfg')
 
-        # self.sub_interfaces_list = ['Upload_Files_Interface', 
-        #                             'Search_Files_Interface', 
-        #                             'Delete_Files_Interface']
         self.sub_interfaces_list = ['Upload_Files_Interface', 
                                     'Search_Files_Interface']
         self.tabs_names_list = list(map(lambda input_value: input_value.split('_')[0], self.sub_interfaces_list))
@@ -78,14 +75,20 @@ class Upload_Files_Interface(Base_Interface):
     def get_app_obj(self):
         return self.app_obj
 
-    def upload_files_handler_func(self, filepaths_list):
-        filenames_list = list(map(lambda input_value: os.path.basename(input_value), filepaths_list))
-        for idx, current_filename_aux in enumerate(filenames_list):        
-            self.handlers['upload_files_handler_func'](filepaths_list[idx], current_filename_aux) 
+    def upload_files_handler_func(self, filepaths_list, ok_icon_image_display):
+        new_filenames_list_df = filepaths_list
+        if (filepaths_list!=None):
+            filenames_list = list(map(lambda input_value: os.path.basename(input_value), filepaths_list))
 
-        new_filenames_list_df = self.handlers['list_files_handler_func']()
+            self.handlers['upload_files_handler_func'](filepaths_list, filenames_list) 
 
-        return new_filenames_list_df
+            new_filenames_list_df = self.handlers['list_files_handler_func']()
+
+            ok_icon_image_display = Image.open('ok_icon.png')
+        else:
+            gr.Warning("You need to select at least one file to upload.")
+
+        return new_filenames_list_df, ok_icon_image_display
 
     def build(self):
         with gr.Blocks() as self.app_obj:
@@ -98,10 +101,15 @@ class Upload_Files_Interface(Base_Interface):
                 type='array'
             )
 
+            ok_icon_image_display = gr.Image(
+                label='Upload notification',
+                interactive=False
+            )
+
             upload_button.click(
                 self.upload_files_handler_func,
-                file_upload_slot,
-                files_list
+                inputs=[file_upload_slot, ok_icon_image_display],
+                outputs=[files_list, ok_icon_image_display]
             )
 
 class Search_Files_Interface(Base_Interface):
@@ -114,6 +122,17 @@ class Search_Files_Interface(Base_Interface):
         files_list_output_df = self.handlers['list_files_handler_func']()
 
         return files_list_output_df
+
+    # The image display parameter is solely used to give feedback to the user when a specific
+    # search is being executed.
+    def search_files_by_text_prompt_handler_func(self, text_prompt, image_display, top_k):
+        images_names_list = self.handlers['search_files_by_text_prompt_handler_func'](text_prompt, image_display)
+        if (len(images_names_list)==0):
+            gr.Warning('No files available in the bucket. You need to upload at least one file first.')
+ 
+        images_names_list = images_names_list[0:top_k]
+
+        return images_names_list, image_display
 
     def selection_handler_func(self, files_list, evt: gr.SelectData):
         selected_filename = files_list[evt.index[0]][evt.index[1]]
@@ -140,8 +159,10 @@ class Search_Files_Interface(Base_Interface):
 
     def build(self):
         with gr.Blocks() as self.app_obj:
-            # search_textbox = gr.Textbox(label='Query')
+            search_textbox = gr.Textbox(label='Type the text of what you want to search')
+            top_k = gr.Number(value=5, minimum=1, maximum=50, step=1, label='Number of files to show')
             search_button = gr.Button('Search')
+
             files_list = gr.Dataframe(
                 headers=['Files names'],
                 interactive=False,
@@ -152,14 +173,14 @@ class Search_Files_Interface(Base_Interface):
 
             files_list.select(
                 self.selection_handler_func,
-                files_list, 
-                image_display
+                inputs=files_list,
+                outputs=image_display
             )
 
             search_button.click(
-                self.list_files_handler_func,
-                files_list,
-                files_list
+                self.search_files_by_text_prompt_handler_func,
+                inputs=[search_textbox, image_display, top_k],
+                outputs=[files_list, image_display]
             )
 
 class Delete_Files_Interface(Base_Interface):
@@ -179,7 +200,7 @@ class Delete_Files_Interface(Base_Interface):
     def build(self):
         with gr.Blocks() as self.app_obj:
             files_list = gr.CheckboxGroup(
-                [],
+                self.list_files_handler_func(),
                 label="Files names", 
                 info="Choose the files you want to delete"
             )

@@ -68,11 +68,3 @@ class Files_Manager():
         BUCKET_ID = self.config['BUCKET']['BUCKET_ID']
 
         self.client.download_file(BUCKET_ID, object_name, local_dst_path)
-
-def main():
-    file_manager_obj = Files_Manager()
-    file_manager_obj.configure_credentials()
-
-    list_objects_result = file_manager_obj.list_objects()
-
-main()
